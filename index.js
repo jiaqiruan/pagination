@@ -1,105 +1,370 @@
+//camelcase, skewercase getCart
 const API = (() => {
-  const URL = "http://localhost:3000";
-  const getCart = () => {
-    // define your method to get cart data
-  };
+    const URL = "http://localhost:3000";
+    const getCart = () => {
+        return fetch(URL + "/cart").then((res) => res.json());
+    };
 
-  const getInventory = () => {
-    // define your method to get inventory data
-  };
+    const getInventory = () => {
+        return fetch(URL + "/inventory").then((res) => res.json());
+    };
 
-  const addToCart = (inventoryItem) => {
-    // define your method to add an item to cart
-  };
+    const addToCart = (inventoryItem) => {
+        //{id , content, amount}
 
-  const updateCart = (id, newAmount) => {
-    // define your method to update an item in cart
-  };
+        console.log("inventoryItem", inventoryItem);
+        return fetch(URL + "/cart", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(inventoryItem),
+        }).then((res) => res.json());
+    };
 
-  const deleteFromCart = (id) => {
-    // define your method to delete an item in cart
-  };
+    const updateCart = (id, newAmount) => {
+        return fetch(URL + "/cart" + "/" + id, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ amount: newAmount }),
+        }).then((res) => res.json());
+    };
 
-  const checkout = () => {
-    // you don't need to add anything here
-    return getCart().then((data) =>
-      Promise.all(data.map((item) => deleteFromCart(item.id)))
-    );
-  };
+    const deleteFromCart = (id) => {
+        return fetch(URL + "/cart" + "/" + id, {
+            method: "DELETE",
+        }).then((res) => res.json());
+    };
 
-  return {
-    getCart,
-    updateCart,
-    getInventory,
-    addToCart,
-    deleteFromCart,
-    checkout,
-  };
+    const checkout = () => {
+        // you don't need to add anything here
+        return getCart().then((data) =>
+            Promise.all(data.map((item) => deleteFromCart(item.id)))
+        );
+    };
+
+    return {
+        getCart,
+        updateCart,
+        getInventory,
+        addToCart,
+        deleteFromCart,
+        checkout,
+    };
 })();
+//inventory.length = 20;
+//itemPerPage.length = 8;
+//1: 0, 2: 8
+// inventory.slice(startIndex, startIndex + 8)
 
+const itemPerPage = 8;
 const Model = (() => {
-  // implement your logic for Model
-  class State {
-    #onChange;
-    #inventory;
-    #cart;
-    constructor() {
-      this.#inventory = [];
-      this.#cart = [];
-    }
-    get cart() {
-      return this.#cart;
-    }
+    // implement your logic for Model
+    class State {
+        #onChange;
+        #inventory;
+        #cart;
+        #currentPage;
+        #displayInventory;
+        constructor() {
+            this.#inventory = [];
+            this.#cart = [];
+            this.#displayInventory = [];
+        }
+        get cart() {
+            return this.#cart;
+        }
 
-    get inventory() {
-      return this.#inventory;
+        get inventory() {
+            return this.#inventory;
+        }
+
+        get currentPage(){
+            return this.#currentPage;
+        }
+
+        get displayInventory(){
+            return this.#displayInventory;
+        }
+
+        set currentPage(newPage){
+            this.#currentPage = newPage;
+            this.#onChange();
+        }
+
+        set displayInventory(newInventory){
+            this.#displayInventory = newInventory;
+            this.#onChange();
+        }
+
+        set cart(newCart) {
+            this.#cart = newCart;
+            this.#onChange();
+        }
+        set inventory(newInventory) {
+            this.#inventory = newInventory;
+            this.#onChange();
+        }
+
+        subscribe(cb) {
+            this.#onChange = cb;
+        }
     }
-
-    set cart(newCart) {}
-    set inventory(newInventory) {}
-
-    subscribe(cb) {}
-  }
-  const {
-    getCart,
-    updateCart,
-    getInventory,
-    addToCart,
-    deleteFromCart,
-    checkout,
-  } = API;
-  return {
-    State,
-    getCart,
-    updateCart,
-    getInventory,
-    addToCart,
-    deleteFromCart,
-    checkout,
-  };
+    const {
+        getCart,
+        updateCart,
+        getInventory,
+        addToCart,
+        deleteFromCart,
+        checkout,
+    } = API;
+    return {
+        State,
+        getCart,
+        updateCart,
+        getInventory,
+        addToCart,
+        deleteFromCart,
+        checkout,
+    };
 })();
+
+//iife: closure, naming space
+
+//diffing algorithm
+//reconciliation
 
 const View = (() => {
-  // implement your logic for View
-  return {};
+    // implement your logic for View
+    const inventoryListEl = document.querySelector(".inventory-container ul");
+    const cartListEl = document.querySelector(".cart-container ul");
+    const checkoutBtnEl = document.querySelector(".checkout-btn");
+    const pageNumber = document.querySelector(".page-number");
+    const prevPageBtn = document.querySelector(".page-prev-btn");
+    const nextPageBtn = document.querySelector(".page-next-btn");
+    const renderPage = (newPage)=>{
+        pageNumber.innerHTML = `${newPage}`;
+    }
+
+    const renderInventory = (inventory) => {
+        let contentHTML = "";
+        inventory.forEach(({ id, content, amount }) => {
+            contentHTML += `
+        <li id="inventory-${id}">
+          <span>${content}</span>
+          <button class="decrement-button">-</button>
+          <span>${amount}</span>
+          <button class="increment-button">+</button>
+          <button class="add-to-cart-button">add to cart</button>
+        </li>
+        `;
+        });
+        inventoryListEl.innerHTML = contentHTML;
+    };
+
+    const renderCart = (cart) => {
+        let contentHTML = "";
+        cart.forEach(({ id, content, amount }) => {
+            contentHTML += `
+      <li id="cart-${id}">
+        <span>${content} x ${amount}</span>
+        <button class="delete-button">delete</button>
+      </li>
+      `;
+        });
+        cartListEl.innerHTML = contentHTML;
+    };
+    return {
+        renderInventory,
+        renderCart,
+        renderPage,
+        inventoryListEl,
+        cartListEl,
+        checkoutBtnEl,
+        pageNumber,
+        prevPageBtn,
+        nextPageBtn
+    };
 })();
 
 const Controller = ((model, view) => {
-  // implement your logic for Controller
-  const state = new model.State();
+    // implement your logic for Controller
+    const state = new model.State();
 
-  const init = () => {};
-  const handleUpdateAmount = () => {};
+    const init = async () => {
+        state.currentPage = 1;
+        const inventory = await model.getInventory();
+        const inventoryWithAmount = inventory.map((item) => ({
+            ...item,
+            amount: 0,
+        }));
+        state.inventory = inventoryWithAmount;
+        //page number here
+        state.displayInventory = state.inventory.slice((state.currentPage-1)*2,(state.currentPage-1)*2+2);
+        //console.log(state.displayInventory);
+        const cart = await model.getCart();
+        state.cart = cart;
+    };
 
-  const handleAddToCart = () => {};
+    const handleUpdateAmount = () => {
+        view.inventoryListEl.addEventListener("click", (event) => {
+            const target = event.target; //event.target, event.currentTarget
+            const id = target.parentElement.id.split("-")[1];
 
-  const handleDelete = () => {};
+            const className = target.className;
+            if (
+                className === "decrement-button" ||
+                className === "increment-button"
+            ) {
+                let oldInventory = [...state.inventory];
+                const newInventory = oldInventory.map((item) => {
+                    if (Number(id) === Number(item.id)) {
+                        return {
+                            ...item,
+                            amount: Math.max(
+                                0,
+                                className === "decrement-button"
+                                    ? item.amount - 1
+                                    : item.amount + 1
+                            ),
+                        };
+                    } else {
+                        return item;
+                    }
+                });
 
-  const handleCheckout = () => {};
-  const bootstrap = () => {};
-  return {
-    bootstrap,
-  };
+                state.inventory = newInventory;
+            }
+        });
+    };
+
+    const handleAddToCart = () => {
+        view.inventoryListEl.addEventListener("click", async (event) => {
+            const target = event.target;
+            const id = target.parentElement.id.split("-")[1];
+            const className = target.className;
+
+            const addItem = state.inventory.find(
+                (item) => Number(item.id) === Number(id)
+            );
+            if (addItem.amount <= 0) return;
+            if (className === "add-to-cart-button") {
+                /* const isAdded = state.cart.some(
+                    (item) => Number(item.id) === Number(id)
+                ); */
+                const targetIndex = state.cart.findIndex(
+                    (item) => Number(item.id) === Number(id)
+                );
+                if (targetIndex !== -1) {
+                    const targetIndex = state.cart.findIndex(
+                        (item) => Number(item.id) === Number(id)
+                    );
+                    const newAmount =
+                        state.cart[targetIndex].amount + addItem.amount;
+                    try {
+                        await model.updateCart(id, newAmount);
+                        const newCart = [...state.cart];
+                        newCart[targetIndex] = {
+                            ...newCart[targetIndex],
+                            amount: newAmount,
+                        };
+                        state.cart = newCart;
+                    } catch (err) {
+                        console.log("err", err);
+                        alert("request failed!");
+                    }
+
+                    /* state.cart = state.cart.map((item) => {
+                        if (Number(item.id) === Number(id)) {
+                            return {
+                                ...item,
+                                amount: item.amount + addItem.amount,
+                            };
+                        } else {
+                            return item;
+                        }
+                    }); */
+                } else {
+                    try {
+                        console.log("addItem", addItem);
+                        await model.addToCart(addItem);
+                        state.cart = [addItem, ...state.cart];
+                    } catch (err) {
+                        console.log("err", err);
+                        alert("request failed!");
+                    }
+                }
+            }
+        });
+    };
+
+    const handleDelete = () => {
+        view.cartListEl.addEventListener("click", async (event) => {
+            const target = event.target;
+            const id = target.parentElement.id.split("-")[1];
+            const className = target.className;
+            if (className === "delete-button") {
+                try {
+                    await model.deleteFromCart(id);
+                    state.cart = state.cart.filter(
+                        (item) => Number(item.id) !== Number(id)
+                    );
+                } catch (err) {
+                    console.log("err", err);
+                    alert("request failed!");
+                }
+            }
+        });
+    };
+
+    const handleCheckout = () => {
+        view.checkoutBtnEl.addEventListener("click", async () => {
+            try {
+                await model.checkout();
+                state.cart = [];
+            } catch (err) {
+                alert("request failed!");
+                console.log("err", err);
+            }
+        });
+    };
+
+    const handlePage = () =>{
+        view.prevPageBtn.addEventListener("click",()=>{
+            if(state.currentPage>1){
+                state.currentPage = state.currentPage-1;
+                state.displayInventory = state.inventory.slice((state.currentPage-1)*2,(state.currentPage-1)*2+2);
+            }
+        });
+        view.nextPageBtn.addEventListener("click",()=>{
+            state.currentPage = state.currentPage+1;
+            state.displayInventory = state.inventory.slice((state.currentPage-1)*2,(state.currentPage-1)*2+2);
+        });
+    };
+
+
+
+    const bootstrap = async () => {
+        state.subscribe(() => {
+            
+            //re-render function
+            view.renderCart(state.cart);
+            view.renderPage(state.currentPage);
+            view.renderInventory(state.displayInventory);
+        });
+        handleUpdateAmount();
+        handleAddToCart();
+
+        handleDelete();
+        handleCheckout();
+        handlePage();
+        await init();
+    };
+    return {
+        bootstrap,
+    };
 })(Model, View);
 
 Controller.bootstrap();
